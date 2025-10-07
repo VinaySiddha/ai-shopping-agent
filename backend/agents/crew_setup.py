@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process
 from crewai.tools import tool
 from crewai import LLM
-
+from crewai import scrape_flipkart
 from tools.enhanced_web_scraper import search_both_platforms
 
 # --- Load environment variables ---
