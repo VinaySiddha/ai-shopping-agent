@@ -1,0 +1,32 @@
+/* Cabinet Grotesk Font Family */
+/* Place your Cabinet Grotesk font files in public/fonts/ directory */
+
+/* Cabinet Grotesk Font Family from Fontshare CDN */
+/* Font is loaded via Fontshare CDN in index.html with weights: 400, 500, 600, 700, 800, 900 */
+
+/* Font utility classes */
+.font-cabinet {
+  font-family: 'Cabinet Grotesk', sans-serif;
+}
+
+/* All font weights are now available:
+ * font-weight: 400 (Regular)
+ * font-weight: 500 (Medium) 
+ * font-weight: 600 (SemiBold)
+ * font-weight: 700 (Bold)
+ * font-weight: 800 (ExtraBold)
+ * font-weight: 900 (Black)
+ */
+
+/* Font Loading Optimization */
+.font-loading {
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.fonts-loaded {
+  font-family: 'CustomPrimary', system-ui, -apple-system, sans-serif;
+}
+
+.display-font {
+  font-family: 'CustomDisplay', 'CustomPrimary', system-ui, sans-serif;
+}

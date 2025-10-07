@@ -1,0 +1,3 @@
+User Query → CrewAI Agents → Web Scraper → Amazon + Flipkart → 
+Product Data (with URLs) → Field Transformation → 
+ProductResult Validation → Supabase Storage
