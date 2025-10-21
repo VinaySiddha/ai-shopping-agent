@@ -39,6 +39,7 @@ class EnhancedWebScraper:
                 'source': 'amazon',
                 'product_name': 'HP Laptop 15s, 12th Gen Intel Core i5-1235U, 8GB RAM, 512GB SSD',
                 'current_price': '₹45,990',
+                'price_numeric': 45990.0,
                 'image_url': 'https://m.media-amazon.com/images/I/71+QG3VRVOL._AC_UY327_FMwebp_QL65_.jpg',
                 'product_url': 'https://www.amazon.in/HP-15s-fq5111TU-12th-i5-1235U-Windows/dp/B0BWQM5WHC',
                 'key_specifications': ['12th Gen Intel Core i5-1235U', '8GB DDR4 RAM', '512GB SSD', '15.6" FHD Display'],
@@ -49,6 +50,7 @@ class EnhancedWebScraper:
                 'source': 'amazon',
                 'product_name': 'Dell Inspiron 3520 Laptop, Intel Core i5-1135G7, 8GB RAM, 1TB+256GB',
                 'current_price': '₹42,990',
+                'price_numeric': 42990.0,
                 'image_url': 'https://m.media-amazon.com/images/I/61Ie-s9tQsL._AC_UY327_FMwebp_QL65_.jpg',
                 'product_url': 'https://www.amazon.in/Dell-Inspiron-3520-i5-1135G7-Windows/dp/B09SPJNFQB',
                 'key_specifications': ['Intel Core i5-1135G7', '8GB DDR4 RAM', '1TB HDD + 256GB SSD', '15.6" FHD Display'],
@@ -59,6 +61,7 @@ class EnhancedWebScraper:
                 'source': 'amazon',
                 'product_name': 'Lenovo IdeaPad Gaming 3 AMD Ryzen 5 5600H, 16GB RAM, GTX 1650',
                 'current_price': '₹54,990',
+                'price_numeric': 54990.0,
                 'image_url': 'https://m.media-amazon.com/images/I/61NjJtksJLL._AC_UY327_FMwebp_QL65_.jpg',
                 'product_url': 'https://www.amazon.in/Lenovo-IdeaPad-Gaming-Ryzen-82K201UHIN/dp/B0B1VQF4RZ',
                 'key_specifications': ['AMD Ryzen 5 5600H', '16GB DDR4 RAM', '512GB SSD', 'NVIDIA GTX 1650 4GB'],
@@ -69,6 +72,7 @@ class EnhancedWebScraper:
                 'source': 'amazon',
                 'product_name': 'ASUS VivoBook 15 Intel Core i3-1115G4, 8GB RAM, 1TB HDD',
                 'current_price': '₹32,990',
+                'price_numeric': 32990.0,
                 'image_url': 'https://m.media-amazon.com/images/I/81YNlthPmWL._AC_UY327_FMwebp_QL65_.jpg',
                 'product_url': 'https://www.amazon.in/ASUS-VivoBook-i3-1115G4-Fingerprint-X515EA-EJ312WS/dp/B08X6KB7LW',
                 'key_specifications': ['Intel Core i3-1115G4', '8GB DDR4 RAM', '1TB HDD', '15.6" HD Display'],
@@ -79,6 +83,7 @@ class EnhancedWebScraper:
                 'source': 'amazon',
                 'product_name': 'Acer Aspire 5 Intel Core i5-1135G7, 8GB RAM, 512GB SSD',
                 'current_price': '₹47,990',
+                'price_numeric': 47990.0,
                 'image_url': 'https://m.media-amazon.com/images/I/71czGb00k7L._AC_UY327_FMwebp_QL65_.jpg',
                 'product_url': 'https://www.amazon.in/Acer-Aspire-i5-1135G7-Graphics-A515-56/dp/B08VKV5K4Y',
                 'key_specifications': ['Intel Core i5-1135G7', '8GB DDR4 RAM', '512GB SSD', 'Intel Iris Xe Graphics'],
@@ -89,6 +94,7 @@ class EnhancedWebScraper:
                 'source': 'amazon',
                 'product_name': 'MSI Modern 14 Intel Core i5-1155G7, 8GB RAM, 512GB SSD',
                 'current_price': '₹49,990',
+                'price_numeric': 49990.0,
                 'image_url': 'https://m.media-amazon.com/images/I/61GS+8IXMQL._AC_UY327_FMwebp_QL65_.jpg',
                 'product_url': 'https://www.amazon.in/MSI-Modern-i5-1155G7-Windows-Carbon/dp/B09DPQC6ZR',
                 'key_specifications': ['Intel Core i5-1155G7', '8GB DDR4 RAM', '512GB NVMe SSD', '14" FHD Display'],
@@ -278,19 +284,25 @@ class EnhancedWebScraper:
                 if price_clean:
                     try:
                         price_numeric = float(price_clean)
-                        # Format price based on domain
+                        # Store both formatted text and numeric value
+                        product['price_numeric'] = price_numeric
+                        # Format price based on domain for display
                         if self.amazon_domain == 'amazon.in':
                             product['current_price'] = f"₹{price_numeric:,.0f}"
                         else:
                             product['current_price'] = f"${price_numeric:.2f}"
                     except ValueError:
                         # Fallback: use original text with appropriate currency symbol
+                        product['price_numeric'] = None
                         if self.amazon_domain == 'amazon.in':
                             product['current_price'] = f"₹{price_text}"
                         else:
                             product['current_price'] = f"${price_text}"
                 else:
                     product['current_price'] = price_text
+                    product['price_numeric'] = None
+            else:
+                product['price_numeric'] = None
             
             # Extract image URL
             img_selectors = [

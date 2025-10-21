@@ -9,11 +9,11 @@ from crewai import LLM
 load_dotenv()
 
 # --- Initialize LLM ---
-gemini_api_key = os.getenv("GEMINI_API_KEY")
-os.environ["GOOGLE_API_KEY"] = gemini_api_key
-
+# gemini_api_key = os.getenv("GEMINI_API_KEY")
+# os.environ["GOOGLE_API_KEY"] = gemini_api_key
+model = os.getenv("MODEL")
 llm = LLM(
-    model="huggingface/deepseek-ai/DeepSeek-V3.2-Exp",
+    model=model,
     temperature=0.7
 )
 

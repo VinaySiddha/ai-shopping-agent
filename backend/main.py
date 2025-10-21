@@ -4,11 +4,11 @@ import json
 import uuid
 import asyncio
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 
 from fastapi import FastAPI, Request, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import env, load_dotenv       # Store search query in database env
+from dotenv import load_dotenv       # Store search query in database env
 from supabase import create_client, Client
 
 from agents.crew_orchestrator import create_shopping_crew
@@ -108,6 +108,20 @@ def get_db_client_for_user(token: str, user_id: str):
         return get_supabase_client_for_user(token)
 
 
+def parse_price_to_numeric(price_str: str) -> Optional[float]:
+    """Extract numeric value from price string like '₹17,499' or '$299.99'"""
+    if not price_str:
+        return None
+    
+    try:
+        # Remove currency symbols and commas, keep only digits and decimal points
+        import re
+        price_clean = re.sub(r'[^\d.]', '', price_str.replace(',', ''))
+        return float(price_clean) if price_clean else None
+    except (ValueError, TypeError):
+        return None
+
+
 def transform_product_fields(product_data: dict) -> dict:
     """
     Transform product field names to match ProductResult model requirements.
@@ -129,7 +143,7 @@ def transform_product_fields(product_data: dict) -> dict:
         if old_field in transformed:
             transformed[new_field] = transformed.pop(old_field)
     
-    # Handle price conversion - convert numeric price to string format
+    # Handle price conversion - ensure both price and price_numeric are available
     if 'price' in transformed:
         price_value = transformed['price']
         if isinstance(price_value, (int, float)) and price_value is not None:
@@ -137,13 +151,34 @@ def transform_product_fields(product_data: dict) -> dict:
             transformed['price_numeric'] = float(price_value)
             # Convert to string format based on source
             source = transformed.get('source', '').lower()
-            if source == 'flipkart':
+            if 'amazon.in' in str(transformed.get('source_url', '')) or source == 'amazon':
                 transformed['price'] = f"₹{price_value:,.0f}"
-            else:  # Amazon or other
-                transformed['price'] = f"${price_value:,.2f}"
+            else:  # Flipkart or other
+                transformed['price'] = f"₹{price_value:,.0f}"
         elif isinstance(price_value, str):
             # Already a string, try to extract numeric value
-            import re
+            transformed['price_numeric'] = parse_price_to_numeric(price_value)
+            # Keep the original formatted string
+    
+    # Ensure price_numeric exists even if not provided
+    if 'price_numeric' not in transformed or transformed['price_numeric'] is None:
+        if 'price' in transformed:
+            transformed['price_numeric'] = parse_price_to_numeric(transformed['price'])
+    
+    # Handle rating conversion
+    if 'rating' in transformed and 'rating_numeric' not in transformed:
+        rating_str = transformed.get('rating', '')
+        if rating_str and isinstance(rating_str, str):
+            try:
+                # Extract number from rating like "4.2/5" or "4.2"
+                import re
+                rating_match = re.search(r'(\d+\.?\d*)', rating_str)
+                if rating_match:
+                    transformed['rating_numeric'] = float(rating_match.group(1))
+                else:
+                    transformed['rating_numeric'] = None
+            except (ValueError, TypeError):
+                transformed['rating_numeric'] = None
             numeric_match = re.search(r'[\d,]+\.?\d*', price_value.replace(',', ''))
             if numeric_match:
                 try:

@@ -6,26 +6,44 @@ from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process
 from crewai.tools import tool
 from crewai import LLM
-from crewai import scrape_flipkart
 from tools.enhanced_web_scraper import search_both_platforms
 
 # --- Load environment variables ---
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+# GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 
-# Set environment variables for LiteLLM
-os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
+# # Set environment variables for LiteLLM
+# os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
 
-# Debug print
-print(f"Using model: {GEMINI_MODEL_NAME}")
-print(f"API key exists: {bool(GEMINI_API_KEY)}")
+# # Debug print
+# print(f"Using model: {GEMINI_MODEL_NAME}")
+# print(f"API key exists: {bool(GEMINI_API_KEY)}")
 
 # --- Initialize LLM using CrewAI's LLM class ---
+# Try Alpha-VLLM/Lumina-DiM00 model first, fallback to gpt-3.5-turbo if needed
+# hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+model = os.getenv("MODEL")
 llm = LLM(
-    model="huggingface/deepseek-ai/DeepSeek-V3.2-Exp",
-    temperature=0.7
-)
+            model=model,
+            temperature=0.3,
+        )
+# if hf_api_key:
+#     try:
+#         # Try using the Lumina model via Hugging Face
+        
+#     except Exception as e:
+#         print(f"⚠️  Lumina model failed, falling back to GPT-3.5: {e}")
+#         llm = LLM(
+#             model="gpt-3.5-turbo",
+#             temperature=0.3
+#         )
+# else:
+#     print("⚠️  No Hugging Face API key found, using GPT-3.5-turbo")
+#     llm = LLM(
+#         model="gpt-3.5-turbo",
+#         temperature=0.3
+#     )
 
 # --- Tool: Enhanced Web Scraper ---
 @tool("EnhancedWebScraper")
@@ -97,10 +115,11 @@ parser_agent = Agent(
 # --- Agent 2: Web Search & Scraper Orchestrator ---
 scraper_orchestrator_agent = Agent(
     role="Web Search & Scraping Orchestrator",
-    goal="Use the WebScraper tool to gather comprehensive real-time product data based on parsed requirements.",
+    goal="Use the WebScraper tool ONCE to gather product data. Accept any number of results without re-scraping.",
     backstory=(
-        "Specialist in finding top online sources and efficiently extracting product information. "
-        "Delegates scraping tasks to the WebScraper tool and compiles raw product data."
+        "Efficient data collector who uses tools exactly once per task. "
+        "Never calls the same tool multiple times or tries to get more results. "
+        "Always satisfied with the first scraping result, whether it's 3 products or 10 products."
     ),
     llm=llm,
     tools=[web_scraper_tool],
@@ -179,43 +198,111 @@ def create_shopping_crew(user_prompt: str, num_products: int) -> Crew:
     # --- Task 2: Scrape Products ---
     scrape_task = Task(
         description=f"""
-        Using the 'search_keyword' from the parser task, scrape at least {num_products * 2} products.
-        Extract: 'name', 'current_price', 'image_url', 'product_url'.
-        Include 'summary' or 'key_specifications' if available.
-        Return empty list if no products are found.
-        Do NOT invent product data.
+        CRITICAL: This is a PRODUCT SEARCH task, NOT web crawler documentation.
+        
+        TASK: Use the EnhancedWebScraper tool EXACTLY ONCE to find real products.
+        
+        IMPORTANT: 
+        - Use the tool ONE TIME ONLY with the search keyword
+        - Accept ANY number of results (3, 5, 8, etc.) - do not try to get exactly {num_products}
+        - Return whatever the tool gives you - do NOT call the tool multiple times
+        - If you get 3 products, that's fine. If you get 10 products, that's also fine.
+        
+        Steps:
+        1. Take the 'search_keyword' from the previous parser task
+        2. Call EnhancedWebScraper ONCE with product_keyword=<search_keyword>
+        3. Return the complete JSON result from that single call
+        4. DO NOT call the tool again even if you get fewer than {num_products} results
+        
+        The scraper returns REAL PRODUCT DATA from Amazon India and Flipkart:
+        - product_name, current_price, image_url, product_url, source, price_numeric
+        
+        STRICT RULE: Use the EnhancedWebScraper tool exactly once and return its output.
         """,
         agent=scraper_orchestrator_agent,
         context=[parse_task],
-        expected_output="JSON array of raw product objects."
+        expected_output="Complete JSON array from single EnhancedWebScraper call (any number of products is acceptable)"
     )
 
     # --- Task 3: Compare & Rank Products ---
     compare_and_rank_task = Task(
         description=f"""
-        Compare scraped products against user requirements:
-            - Budget, specs, brand preferences
-            - Generate one-paragraph 'summary' for each product
-            - Identify 'key_specifications' matching user's request
-            - Assign 'ranking_score' (0-100)
-        Return only the top {num_products} products.
+        CRITICAL: Analyze REAL PRODUCT DATA for e-commerce comparison - NOT programming tutorials.
+        
+        TASK: Compare and rank ALL products from the scraper (whether 3, 5, 8, or more products).
+        
+        Input: JSON array of REAL PRODUCTS from scraper (accept ANY quantity)
+        
+        Processing steps:
+        1. Take ALL products from the scraper task (don't try to get more)
+        2. Compare against user requirements (budget, specs, brand)
+        3. Rank by value, features, and price match
+        4. Return ALL products ranked (up to {num_products} max if more available)
+        5. Add helpful product summaries
+        
+        IMPORTANT: Work with whatever products the scraper provided. If scraper gave 4 products, 
+        rank those 4 products. Do NOT request more products or complain about quantity.
+        
+        Output: JSON array of ALL available products, ranked:
+        [
+          {{
+            "product_name": "Samsung Galaxy M36 5G (Velvet Black, 8GB RAM)",
+            "current_price": "₹17,499",
+            "price_numeric": 17499.0,
+            "image_url": "https://m.media-amazon.com/images/...",
+            "product_url": "https://www.amazon.in/dp/...", 
+            "source": "amazon",
+            "summary": "Great 5G phone with 50MP camera",
+            "key_specifications": ["8GB RAM", "5G", "50MP Camera"],
+            "ranking_score": 85
+          }}
+        ]
         """,
         agent=comparator_agent,
         context=[parse_task, scrape_task],
-        expected_output=f"JSON array of top {num_products} product objects with 'product_name', 'current_price', 'image_url', 'product_url', 'ranking_score', 'summary', 'key_specifications'."
+        expected_output="JSON array of ALL scraped products, ranked by relevance (accept any quantity from scraper)"
     )
 
     # --- Task 4: Format Final Results ---
     format_task = Task(
-        description="""
-        Format top-ranked products for frontend display:
-            - Ensure each object has: 'product_name', 'image_url', 'current_price', 'summary', 'key_specifications', 'product_url'
-            - Do not include 'ranking_score' unless required
-            - Ensure 'current_price' is numeric and 'key_specifications' is a list of strings
+        description=f"""
+        FINAL FORMATTING: Transform the ranked products into the required JSON schema.
+        
+        INPUT: JSON array from the comparator with product objects
+        OUTPUT: Clean JSON array with renamed fields for frontend compatibility
+        
+        Field transformations required:
+        - product_name → name  
+        - current_price → price (keep ₹ format)
+        - product_url → source_url
+        - key_specifications → features
+        - Add missing fields with defaults:
+          - rating: "N/A" if not present
+          - rating_numeric: null if not present  
+          - brand: extract from name or set to ""
+          - availability: "In Stock"
+        
+        STRICT REQUIREMENT: Return ONLY a valid JSON array, NO additional text or explanations.
+        
+        Example output format:
+        [
+          {{
+            "name": "Samsung Galaxy M36 5G",
+            "price": "₹17,499", 
+            "price_numeric": 17499.0,
+            "rating": "N/A",
+            "rating_numeric": null,
+            "source_url": "https://www.amazon.in/dp/B0FDB8V6PS",
+            "brand": "Samsung",
+            "features": ["5G", "50MP Camera", "8GB RAM"],
+            "availability": "In Stock",
+            "image_url": "https://m.media-amazon.com/images/I/61FcXMhjr8L._AC_UY218_.jpg"
+          }}
+        ]
         """,
         agent=formatter_agent,
         context=[compare_and_rank_task],
-        expected_output="JSON array of final consumer-ready product objects."
+        expected_output="Pure JSON array with no surrounding text - ready for frontend parsing."
     )
 
     # --- Assemble Crew ---
